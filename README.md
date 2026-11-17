@@ -67,12 +67,20 @@ sidebar provides new-chat, clear-chat, document-folder, model settings, recent
 conversations, and saved memories. Model settings are kept for the current app
 session.
 
-Wake-word listening starts automatically when FRIDAY starts, without a GUI
-toggle. After saying “Hey FRIDAY”, speak your command and pause; FRIDAY stops
-recording after 1.5 seconds of silence. The composer microphone button also
-starts a recording that ends after the same silence interval; it has no manual
-Stop recording button. Recognized text is inserted for review before sending.
-Voice output can be toggled and interrupted from the composer.
+Wake-word listening starts automatically when FRIDAY starts. After saying “Hey
+FRIDAY”, speak your command; hands-free voice mode automatically submits your
+spoken query, speaks the answer, and seamlessly resumes wake-word listening.
+You can also click the composer microphone button (which toggles to Stop when
+you wish to finish early or avoid lag). Voice output can be toggled and
+interrupted from the composer. A global hotkey (**Win + Shift + F**) summons
+FRIDAY from anywhere, and a Windows system tray icon provides background status,
+quick muting, and clean shutdown.
+
+FRIDAY also provides local PC and system actions:
+- **Audio & Media**: Mute/unmute, volume up/down, play/pause, next/previous track.
+- **Hardware Stats**: Real-time battery percentage/charging state, RAM/memory usage.
+- **App Launcher**: Quickly open apps (Notepad, Calculator, Spotify, VS Code, Browser, Task Manager).
+- **Time & Date**: Instant local clock and date queries.
 Speech recognition uses the offline faster-whisper `small.en` model stored in
 `models/speech`; it prefers CUDA with `int8_float16` and falls back to CPU
 `int8` when the CUDA runtime is unavailable. Microphone audio is kept in RAM,

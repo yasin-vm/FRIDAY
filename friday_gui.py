@@ -27,6 +27,7 @@ from assistant_control import AssistantControlError, AssistantControlServer
 from chat_service import ChatService, ModelConfig
 from memory_store import Conversation, Memory, MemoryStore
 from speech_service import SpeechService
+from system_control import handle_system_command
 from tray_service import TrayService
 
 
@@ -1390,6 +1391,12 @@ class FridayWindow:
 
     def _ask_worker(self, query: str, image: str | None) -> None:
         try:
+            if image is None:
+                handled, action_response = handle_system_command(query)
+                if handled:
+                    _logger.info("Executed system action: %s", action_response)
+                    self._events.put(("answer", (action_response, None)))
+                    return
             _logger.debug("AI request started image=%s query=%r", image is not None, query)
             answer = self.chat_service.respond(query, self.documents, image)
         except RuntimeError as error:

@@ -33,6 +33,7 @@ from chat_service import (
     select_model_for_message,
 )
 from memory_store import MemoryStore
+from system_control import handle_system_command
 
 
 def run_chat(
@@ -101,6 +102,18 @@ def run_chat(
             continue
 
         has_image = pending_image is not None
+        if not has_image:
+            handled, action_response = handle_system_command(query)
+            if handled:
+                if memory_store is not None and conversation_id is not None:
+                    try:
+                        memory_store.save_message(conversation_id, "user", query)
+                        memory_store.save_message(conversation_id, "assistant", action_response)
+                    except (OSError, sqlite3.Error):
+                        pass
+                print(f"\nFRIDAY: {action_response}")
+                continue
+
         if memory_store is not None and conversation_id is not None:
             try:
                 memory_store.save_message(conversation_id, "user", query)
