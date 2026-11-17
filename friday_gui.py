@@ -27,6 +27,7 @@ from assistant_control import AssistantControlError, AssistantControlServer
 from chat_service import ChatService, ModelConfig
 from memory_store import Conversation, Memory, MemoryStore
 from speech_service import SpeechService
+from tray_service import TrayService
 
 
 BG = "#0b0d12"
@@ -170,6 +171,12 @@ class FridayWindow:
         root.after(100, self._drain_events)
         threading.Thread(target=self._connection_worker, daemon=True).start()
         self._activate_wake_word_on_startup()
+        self.tray_service = TrayService(
+            on_show=lambda: self._events.put(("control_show", None)),
+            on_shutdown=lambda: self._events.put(("control_shutdown", None)),
+            on_toggle_mute=self._toggle_wake_mute,
+        )
+        self.tray_service.start()
         if folder is not None:
             self._load_folder(folder)
 
@@ -1307,16 +1314,34 @@ class FridayWindow:
     def _close(self) -> None:
         _logger.info("FRIDAY window hidden; background assistant remains active")
         self.root.withdraw()
+        if getattr(self, "tray_service", None):
+            self.tray_service.update_tooltip("FRIDAY - Running in background (Win+Shift+F)")
 
     def _shutdown_assistant(self) -> None:
         if self._shutting_down:
             return
         self._shutting_down = True
         _logger.info("Shutting down the FRIDAY assistant")
+        if getattr(self, "tray_service", None):
+            self.tray_service.close()
         if self._control_server is not None:
             self._control_server.close()
         self.speech_service.close()
         self.root.destroy()
+
+    def _toggle_wake_mute(self) -> None:
+        if self._wake_listening:
+            self.speech_service.stop_wake_word()
+            self._wake_listening = False
+            if getattr(self, "tray_service", None):
+                self.tray_service.is_muted = True
+            self.status.set("Wake-word listening muted from system tray.")
+        else:
+            self._wake_failed = False
+            if getattr(self, "tray_service", None):
+                self.tray_service.is_muted = False
+            self._start_wake_word()
+            self.status.set("Wake-word listening unmuted.")
 
     def _send(self) -> None:
         _logger.debug(
