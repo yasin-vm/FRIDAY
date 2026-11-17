@@ -125,6 +125,7 @@ class FridayWindow:
         self._voice_output_pending = False
         self._recognized_speech_count = 0
         self.hands_free: bool = True
+        self._wake_triggered: bool = False
         self._bubble_font = tkfont.Font(font=("Segoe UI", 10))
         self._last_chat_width: int | None = None
         self._connection_check_id: str | None = None
@@ -1215,6 +1216,7 @@ class FridayWindow:
             self.status.set("Stopping wake-word listening before recording...")
             return
 
+        self._wake_triggered = False
         self._start_recording()
 
     def _start_recording(self, *, auto_stop_after_silence: bool = True) -> None:
@@ -1828,7 +1830,7 @@ class FridayWindow:
                     auto_sent = False
                     if not self._speech_error:
                         if self._recognized_speech_count:
-                            if getattr(self, "hands_free", True):
+                            if getattr(self, "_wake_triggered", False) and getattr(self, "hands_free", True):
                                 auto_sent = True
                                 self.root.after_idle(self._send)
                             else:
@@ -1840,6 +1842,7 @@ class FridayWindow:
                                 "No speech was recognized. Check Windows microphone "
                                 "privacy and the default input device, then try again."
                             )
+                    self._wake_triggered = False
                     if not auto_sent and not self._wake_paused_for_tts and not self._wake_failed:
                         self._start_wake_word()
                 elif event == "wake_started":
@@ -1861,8 +1864,10 @@ class FridayWindow:
                     self._wake_capture_active = False
                     if self._pending_manual_recording:
                         self._pending_manual_recording = False
+                        self._wake_triggered = False
                         self._start_recording()
                     elif payload:
+                        self._wake_triggered = True
                         self._start_recording(auto_stop_after_silence=True)
                     elif (
                         not self._wake_failed
