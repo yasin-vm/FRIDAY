@@ -861,10 +861,13 @@ class FasterWhisperEngine:
                                 pcm.extend(audio_chunk)
                             captured_bytes += len(audio_chunk)
                             if silence_detector is not None:
-                                if silence_detector.observe(audio_chunk, time.monotonic()):
+                                now = time.monotonic()
+                                if silence_detector.observe(audio_chunk, now) or (
+                                    capture_started_at is not None and now - capture_started_at >= 15.0
+                                ):
                                     _logger.info(
                                         "Automatically stopping speech capture after "
-                                        "%.1f seconds of silence.",
+                                        "%.1f seconds of silence or maximum recording duration.",
                                         self._AUTO_STOP_SILENCE_SECONDS,
                                     )
                                     stop_event.set()

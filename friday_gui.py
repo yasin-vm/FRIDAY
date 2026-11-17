@@ -122,6 +122,9 @@ class FridayWindow:
         self._pending_manual_recording = False
         self._voice_output_pending = False
         self._recognized_speech_count = 0
+        self._bubble_font = tkfont.Font(font=("Segoe UI", 10))
+        self._last_chat_width: int | None = None
+        self._connection_check_id: str | None = None
         self.folder: Path | None = None
         self.documents: list[friday.Document] = []
         self.pending_image: tuple[str, str] | None = None
@@ -680,6 +683,9 @@ class FridayWindow:
         self._follow_output = self.chat_canvas.yview()[1] >= 0.999
 
     def _resize_chat(self, event: tk.Event) -> None:
+        if getattr(self, "_last_chat_width", None) == event.width:
+            return
+        self._last_chat_width = event.width
         self.chat_canvas.itemconfigure(self.feed_window, width=event.width)
         if self.welcome_window is not None:
             self.chat_canvas.coords(
@@ -843,7 +849,7 @@ class FridayWindow:
         wrap_labels: list[tk.Label],
     ) -> None:
         max_width = max(220, min(680, int(available_width * 0.72)))
-        font = tkfont.Font(font=("Segoe UI", 10))
+        font = getattr(self, "_bubble_font", None) or tkfont.Font(font=("Segoe UI", 10))
         natural_width = max(
             (font.measure(line) for line in text.splitlines()),
             default=120,
@@ -1184,6 +1190,8 @@ class FridayWindow:
 
     def _toggle_recording(self) -> None:
         if self._recording:
+            self.status.set("Stopping recording...")
+            self.speech_service.stop_listening()
             return
         if self._busy:
             return
@@ -1207,8 +1215,8 @@ class FridayWindow:
         self._speech_error = False
         self._recognized_speech_count = 0
         self.microphone_button.configure(
-            text="🎤 Recording...",
-            state="disabled",
+            text="⏹  Stop",
+            state="normal",
         )
         self.status.set(
             "Starting in-memory microphone capture on the Windows default input..."
@@ -1371,8 +1379,13 @@ class FridayWindow:
         self._events.put(("answer", (answer, self.chat_service.memory_error)))
 
     def _schedule_connection_check(self) -> None:
+        if getattr(self, "_connection_check_id", None) is not None:
+            try:
+                self.root.after_cancel(self._connection_check_id)
+            except Exception:
+                pass
         threading.Thread(target=self._connection_worker, daemon=True).start()
-        self.root.after(30_000, self._schedule_connection_check)
+        self._connection_check_id = self.root.after(30_000, self._schedule_connection_check)
 
     def _connection_worker(self) -> None:
         try:
@@ -1733,8 +1746,10 @@ class FridayWindow:
                         self.status.set("Ollama is offline. Start Ollama and try again.")
                 elif event == "speech_started":
                     self.status.set("🎤 Listening to your command...")
+                    self.microphone_button.configure(text="⏹  Stop", state="normal")
                 elif event == "speech_processing":
                     self.status.set("Processing your voice...")
+                    self.microphone_button.configure(text="⏳ Processing...", state="disabled")
                 elif event == "speech_text":
                     recognized = str(payload).strip()
                     if recognized:
@@ -1755,6 +1770,8 @@ class FridayWindow:
                             "Ready — review your recognized text."
                         )
                 elif event == "speech_error":
+                    self._recording = False
+                    self.microphone_button.configure(text="🎙  Talk", state="normal")
                     self._speech_error = True
                     self.status.set(f"Voice input unavailable: {payload}")
                 elif event == "speech_finished":
@@ -1889,6 +1906,8 @@ def run_gui(
 def _run_until_shutdown(root: tk.Tk, window: FridayWindow) -> None:
     while not window._shutting_down:
         try:
+            if hasattr(root, "update_idletasks"):
+                root.update_idletasks()
             root.update()
         except tk.TclError:
             if window._shutting_down:

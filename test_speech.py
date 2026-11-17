@@ -920,8 +920,12 @@ class SpeechServiceTests(unittest.TestCase):
 
         self.assertTrue(app._recording)
         self.assertTrue(app.speech_service.options["auto_stop_after_silence"])
-        self.assertEqual(app.microphone_button.options["state"], "disabled")
-        self.assertEqual(app.microphone_button.options["text"], "🎤 Recording...")
+        self.assertEqual(app.microphone_button.options["state"], "normal")
+        self.assertEqual(app.microphone_button.options["text"], "⏹  Stop")
+        app.speech_service.stopped = False
+        app.speech_service.stop_listening = lambda: setattr(app.speech_service, "stopped", True)
+        app._toggle_recording()
+        self.assertTrue(app.speech_service.stopped)
 
     def test_gui_starts_editable_recording_after_wake_detection(self) -> None:
         from friday_gui import FridayWindow
