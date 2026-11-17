@@ -122,6 +122,7 @@ class FridayWindow:
         self._pending_manual_recording = False
         self._voice_output_pending = False
         self._recognized_speech_count = 0
+        self.hands_free: bool = True
         self._bubble_font = tkfont.Font(font=("Segoe UI", 10))
         self._last_chat_width: int | None = None
         self._connection_check_id: str | None = None
@@ -1450,6 +1451,20 @@ class FridayWindow:
             entry.pack(fill="x", ipady=8)
             fields.append((title, entry))
 
+        hands_free_var = tk.BooleanVar(value=getattr(self, "hands_free", True))
+        hf_check = tk.Checkbutton(
+            body,
+            text="Hands-free voice mode (auto-send spoken queries)",
+            variable=hands_free_var,
+            bg=BG,
+            fg=TEXT,
+            selectcolor=PANEL,
+            activebackground=BG,
+            activeforeground=TEXT,
+            font=("Segoe UI", 9),
+        )
+        hf_check.pack(anchor="w", pady=(12, 4))
+
         actions = tk.Frame(body, bg=BG)
         actions.pack(fill="x", pady=(20, 0))
 
@@ -1463,6 +1478,7 @@ class FridayWindow:
                 )
                 return
             self.model, self.vision_model, self.base_url = values
+            self.hands_free = hands_free_var.get()
             self.chat_service.config = ModelConfig(
                 self.model,
                 self.vision_model,
@@ -1777,17 +1793,22 @@ class FridayWindow:
                 elif event == "speech_finished":
                     self._recording = False
                     self.microphone_button.configure(text="🎙  Talk", state="normal")
+                    auto_sent = False
                     if not self._speech_error:
                         if self._recognized_speech_count:
-                            self.status.set(
-                                "Ready — review your recognized text."
-                            )
+                            if getattr(self, "hands_free", True):
+                                auto_sent = True
+                                self.root.after_idle(self._send)
+                            else:
+                                self.status.set(
+                                    "Ready — review your recognized text."
+                                )
                         else:
                             self.status.set(
                                 "No speech was recognized. Check Windows microphone "
                                 "privacy and the default input device, then try again."
                             )
-                    if not self._wake_paused_for_tts and not self._wake_failed:
+                    if not auto_sent and not self._wake_paused_for_tts and not self._wake_failed:
                         self._start_wake_word()
                 elif event == "wake_started":
                     self._wake_listening = True

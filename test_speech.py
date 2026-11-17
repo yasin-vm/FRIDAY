@@ -1004,6 +1004,44 @@ class SpeechServiceTests(unittest.TestCase):
             )
         )
 
+    def test_gui_hands_free_auto_sends_query(self) -> None:
+        from friday_gui import FridayWindow
+
+        class FakeButton:
+            def configure(self, **_kwargs) -> None:
+                pass
+
+        class FakeRoot:
+            def __init__(self) -> None:
+                self.idle_tasks: list[tuple[Any, tuple[Any, ...]]] = []
+
+            def after(self, *_args) -> None:
+                pass
+
+            def after_idle(self, func, *args) -> None:
+                self.idle_tasks.append((func, args))
+
+        app = FridayWindow.__new__(FridayWindow)
+        app._events = queue.Queue()
+        app._events.put(("speech_finished", None))
+        app.root = FakeRoot()
+        app.microphone_button = FakeButton()
+        app._speech_error = False
+        app._recognized_speech_count = 1
+        app.hands_free = True
+        app._recording = True
+        app._wake_paused_for_tts = False
+        app._wake_failed = False
+        app.sent = False
+        app._send = lambda: setattr(app, "sent", True)
+
+        app._drain_events()
+
+        self.assertFalse(app._recording)
+        self.assertEqual(len(app.root.idle_tasks), 1)
+        app.root.idle_tasks[0][0]()
+        self.assertTrue(app.sent)
+
 
 if __name__ == "__main__":
     unittest.main()
