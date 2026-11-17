@@ -1499,6 +1499,22 @@ class FridayWindow:
         )
         hf_check.pack(anchor="w", pady=(12, 4))
 
+        import startup_manager
+
+        startup_var = tk.BooleanVar(value=startup_manager.is_startup_enabled())
+        st_check = tk.Checkbutton(
+            body,
+            text="Launch FRIDAY on Windows login (background daemon)",
+            variable=startup_var,
+            bg=BG,
+            fg=TEXT,
+            selectcolor=PANEL,
+            activebackground=BG,
+            activeforeground=TEXT,
+            font=("Segoe UI", 9),
+        )
+        st_check.pack(anchor="w", pady=(4, 4))
+
         actions = tk.Frame(body, bg=BG)
         actions.pack(fill="x", pady=(20, 0))
 
@@ -1513,6 +1529,20 @@ class FridayWindow:
                 return
             self.model, self.vision_model, self.base_url = values
             self.hands_free = hands_free_var.get()
+
+            want_startup = startup_var.get()
+            current_startup = startup_manager.is_startup_enabled()
+            if want_startup != current_startup:
+                if want_startup:
+                    if messagebox.askyesno(
+                        "Enable Windows Startup",
+                        "Do you grant permission for FRIDAY to start automatically when you log into Windows?",
+                        parent=dialog,
+                    ):
+                        startup_manager.enable_startup()
+                else:
+                    startup_manager.disable_startup()
+
             self.chat_service.config = ModelConfig(
                 self.model,
                 self.vision_model,
