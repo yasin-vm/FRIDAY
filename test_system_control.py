@@ -76,6 +76,12 @@ class SystemControlTests(unittest.TestCase):
         handled, msg = handle_system_command("pause music")
         self.assertTrue(handled)
 
+        with patch("system_control.launch_application", return_value=(True, "Opened Camera.")) as mock_launch:
+            handled, msg = handle_system_command("turn on the camera of mine")
+            self.assertTrue(handled)
+            self.assertEqual(msg, "Opened Camera.")
+            mock_launch.assert_called_once_with("camera")
+
         handled, msg = handle_system_command("tell me about quantum computing")
         self.assertFalse(handled)
         self.assertEqual(msg, "")

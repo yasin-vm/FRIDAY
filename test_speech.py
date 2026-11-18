@@ -123,7 +123,7 @@ class SpeechServiceTests(unittest.TestCase):
         load_model.assert_called_once()
         self.assertEqual(
             make_recognizer.call_args.args[1:],
-            (16000, '["hey friday"]'),
+            (16000, FasterWhisperEngine._WAKE_PHRASE_GRAMMAR),
         )
 
     def test_wake_detector_ignores_nonmatching_phrase(self) -> None:

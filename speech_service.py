@@ -454,7 +454,7 @@ def _wake_phrase_from_result(result_json: str) -> bool:
     result = json.loads(result_json)
     text = result.get("partial", result.get("text", ""))
     words = " ".join(re.findall(r"[a-z]+", text.lower()))
-    return words == FasterWhisperEngine._WAKE_PHRASE
+    return words in FasterWhisperEngine._WAKE_PHRASES
 
 
 def prepare_speech_text(text: str) -> str:
@@ -573,8 +573,9 @@ class FasterWhisperEngine:
     _SAMPLE_RATE = 16000
     _VAD_THRESHOLD = 0.35
     _WAKE_MODEL_NAME = "vosk-model-small-en-us-0.15"
-    _WAKE_PHRASE_GRAMMAR = '["hey friday"]'
+    _WAKE_PHRASE_GRAMMAR = '["hey friday", "hey jarvis"]'
     _WAKE_PHRASE = "hey friday"
+    _WAKE_PHRASES = {"hey friday", "hey jarvis"}
     _AUTO_STOP_SILENCE_SECONDS = 1.5
     _AUTO_STOP_SIGNAL_THRESHOLD = 327
 

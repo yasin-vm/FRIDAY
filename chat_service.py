@@ -298,6 +298,62 @@ def ask_ollama(
     return message["content"].strip()
 
 
+def ask_gemini(
+    messages: list[dict[str, Any]],
+    api_key: str,
+    model: str = "gemini-3.8-flash",
+    timeout: float = 30,
+) -> str:
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    contents: list[dict[str, Any]] = []
+    system_instruction: dict[str, Any] | None = None
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role == "system":
+            system_instruction = {"parts": [{"text": content}]}
+            continue
+        g_role = "model" if role == "assistant" else "user"
+        parts: list[dict[str, Any]] = [{"text": content}]
+        if "images" in msg and msg["images"]:
+            for img in msg["images"]:
+                parts.append({
+                    "inline_data": {
+                        "mime_type": "image/jpeg",
+                        "data": img,
+                    }
+                })
+        contents.append({"role": g_role, "parts": parts})
+
+    body: dict[str, Any] = {"contents": contents}
+    if system_instruction:
+        body["system_instruction"] = system_instruction
+
+    payload = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        endpoint,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        details = error.read().decode("utf-8", errors="replace")
+        error.close()
+        raise RuntimeError(f"Google Gemini HTTP {error.code}: {details}") from error
+    except urllib.error.URLError as error:
+        raise RuntimeError(f"Google Gemini network error: {error.reason}") from error
+
+    candidates = data.get("candidates", [])
+    if candidates and "content" in candidates[0]:
+        parts = candidates[0]["content"].get("parts", [])
+        if parts and "text" in parts[0]:
+            return parts[0]["text"].strip()
+    return "No response generated from Gemini."
+
+
 class ChatService:
     """Own model selection, request construction, and session chat history."""
 
@@ -357,7 +413,15 @@ class ChatService:
             user_message,
         ]
         model = self.model_for_message(user_message)
-        answer = ask_ollama(model, messages, self.config.base_url)
+        gemini_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if gemini_key:
+            try:
+                answer = ask_gemini(messages, gemini_key)
+            except Exception as error:
+                _logger.warning("Gemini request failed, falling back to Ollama: %s", error)
+                answer = ask_ollama(model, messages, self.config.base_url)
+        else:
+            answer = ask_ollama(model, messages, self.config.base_url)
         self.history.extend(
             [
                 {"role": "user", "content": query},

@@ -127,6 +127,7 @@ def launch_application(app_key: str) -> tuple[bool, str]:
         "browser": ("https://www.google.com", "Default Web Browser"),
         "terminal": ("powershell.exe", "PowerShell Terminal"),
         "vscode": ("code", "Visual Studio Code"),
+        "camera": ("microsoft.windows.camera:", "Camera"),
     }
     target, display_name = apps.get(app_key, (None, None))
     if not target:
@@ -182,7 +183,12 @@ def handle_system_command(query: str) -> tuple[bool, str]:
         return True, control_media("previous")
 
     # Application Launching
-    open_match = re.search(r"\b(open|launch|start)\s+(notepad|calculator|spotify|task manager|settings|file explorer|explorer|browser|terminal|vscode|vs code|code)\b", text)
+    camera_match = re.search(r"\b(open|launch|start|turn on)\s+(the\s+)?(camera|webcam|web cam)\b", text)
+    if camera_match:
+        success, msg = launch_application("camera")
+        return True, msg
+
+    open_match = re.search(r"\b(open|launch|start)\s+(notepad|calculator|spotify|task manager|settings|file explorer|explorer|browser|terminal|vscode|vs code|code|camera)\b", text)
     if open_match:
         app_name = open_match.group(2)
         if app_name in ("vs code", "code"):
